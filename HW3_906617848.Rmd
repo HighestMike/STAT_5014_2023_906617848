@@ -1,0 +1,292 @@
+---
+title: "Kumi Michael Osei"
+output: pdf_document
+date: "2023-10-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(pander)
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+cbPalette <- c("#CC79A7", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# The palette with black:
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+
+# Part A
+
+Ten parts were selected randomly from a line and duplicate measurements of the part’s wall thickness were taken by each of three operators of the measurement apparatus. Click on the link and you will see the data in your browser.
+
+```{r}
+operator<-c(1 ,2 ,3)
+op_rep<-rep(operator, each =2)
+op_rep1<-seq(1,length(op_rep), by = 1)
+op_rep2<-c(1,2)
+var<-rep("op", length(op_rep))
+lab<-c("obs", paste(var,op_rep,op_rep1, sep = "."))
+dat1<-read.csv("partA_data.csv", header = F )
+colnames(dat1)<-c(lab)
+dat<-dat1 %>%
+  gather("obs_code","value",op.1.1:op.3.6)%>%
+  mutate(obs=as.numeric(obs))%>%
+  mutate(value=as.numeric(value))
+dat<-dat[order(dat$obs), ]
+dat$operator<-rep(op_rep, times = length(dat1$obs))
+dat$replicate<-rep(op_rep2, times = 3*length(dat1$obs))
+dat$part<-rep(seq(1,10,by =1), each = length(op_rep1))
+tidy_data<-(dat[, c(3,4,5,6)])
+rownames(tidy_data) <- NULL
+tidy_data<-tidy_data %>%
+  mutate(operator=as.factor(operator))%>%
+  mutate(replicate=as.factor(replicate))%>%
+  mutate(part=as.factor(part))
+head<-head(tidy_data,15)
+kable(head,caption="Tidy data for the duplicate 
+      measurements of part’s wall thickness by
+      three operators for 10 parts")
+```
+```{r, message=FALSE}
+#Averaging the replicates of each operator using the mean
+meanrep<-rep(seq(1,length(tidy_data$operator)/2), each = 2)
+tidy_data$meanrep<-as.factor(meanrep)
+library(dplyr)
+
+tidy2 <- tidy_data %>%
+  group_by(meanrep, operator, part) %>%
+  summarize(mean_value = mean(value))
+
+head<-head(tidy2,15)
+kable(head,caption="Summarized data with mean of replicates")
+```
+
+```{r}
+library(ggplot2)
+tidy2 %>% 
+  ggplot(aes(x=part, y=tidy2$mean_value-(min(tidy2$mean_value))+0.001,
+             fill =part)) +geom_col()+
+  facet_wrap(~ operator)+
+  labs(caption = "We have a histogram of the parts
+       and their mean wall thickness. Each facet
+       represents the operator used ", 
+       y = "mean wall thickness(scale = y-min(y)+0.001)")
+```
+
+## Issues
+
+The data had to scaled for the best visualization because it all the measurements were very close.
+
+# Part B
+
+Brain weight (g) and body weight (kg) for 62 species.
+
+```{r}
+mat<-as.matrix(read.csv("partB_data.csv", header = F ))
+colnames(mat) <- NULL
+vec<-numeric()
+for(i in 1:nrow(mat)){
+  vec <- c(vec, mat[i, ])
+}
+vec<-vec[complete.cases(vec)]
+type<-c("Body_Wt","Brain_Wt")
+M.type<-rep(type, times = length(vec)/2)
+rep<-seq(1,length(vec)/2, by =1)
+Species<-rep(rep,each =2)
+data<-data.frame(vec,M.type,Species)
+tidy_data<-spread(data, M.type, vec)
+tidy_data<-tidy_data %>%
+  mutate(Species=as.factor(Species))
+head<-head(tidy_data,15)
+kable(head,caption="Tidy data for Brain weight (g) 
+      and body weight (kg) for 62 species")
+```
+
+```{r, include=FALSE}
+zones <- matrix(c(1,1,1, 
+                  0,5,0, 
+                  2,6,4, 
+                  0,3,0), ncol = 3, byrow = TRUE)
+layout(zones, widths=c(0.3,4,1), heights = c(1,3,10,.75))
+layout.show(n=6)
+x=tidy_data$Body_Wt
+y=tidy_data$Brain_Wt
+scatterhist <- function(x, y, xlab = "", ylab = "", plottitle="", 
+                        xsize=1, cleanup=TRUE,...){
+  def.par <- par(no.readonly = TRUE)
+  zones <- matrix(c(1,1,1, 0,5,0, 2,6,4, 0,3,0), ncol = 3, byrow = TRUE)
+  layout(zones, widths=c(0.3,4,1), heights = c(1,3,10,.75))
+  xhist <- hist(x, plot = FALSE)
+  yhist <- hist(y, plot = FALSE)
+  top <- max(c(xhist$counts, yhist$counts))
+  par(xaxt="n", yaxt="n",bty="n",  mar = c(.3,2,.3,0) +.05)
+  plot(x=1,y=1,type="n",ylim=c(-1,1), xlim=c(-1,1))
+  text(0,0,paste(plottitle), cex=2)
+  plot(x=1,y=1,type="n",ylim=c(-1,1), xlim=c(-1,1))
+  text(0,0,paste(ylab), cex=1.5, srt=90)
+  plot(x=1,y=1,type="n",ylim=c(-1,1), xlim=c(-1,1))
+  text(0,0,paste(xlab), cex=1.5)
+  par(mar = c(2,0,1,1))
+  barplot(yhist$counts, axes = FALSE, xlim = c(0, top),
+          space = 0, horiz = TRUE)
+  par(mar = c(0,2,1,1))
+  barplot(xhist$counts, axes = FALSE, ylim = c(0, top), space = 0)
+  par(mar = c(2,2,.5,.5), xaxt="s", yaxt="s", bty="n")
+  plot(x, y , pch=19, col="#00000022", cex=xsize, ...)
+  if(cleanup) {par(def.par)}
+}
+```
+
+
+```{r}
+scatterhist(x, y, xlab="Body weight",
+            ylab="Brain weight",   
+  "plot for the brain weight and body weight fot the 62 species",
+  xsize =2)
+```
+
+## Issues
+
+The outliers in the data set interfered with the clarity of our scatter plot especially for our lower values.
+
+# Part C
+
+Gold Medal performance for Olympic Men’s Long Jump, year is coded as 1900=0. Goodness, ragged arrays. Check out fread in the data.table package.
+
+```{r}
+mat<-as.matrix(read.csv("partC_data.csv", header = F ))
+colnames(mat) <- NULL
+vec<-numeric()
+for(i in 1:nrow(mat)){
+  vec <- c(vec, mat[i, ])
+}
+vec<-vec[complete.cases(vec)]
+dat<-data.frame(matrix(vec, ncol = 2, byrow = T))
+dat$X1<-dat$X1+1900
+colnames(dat)<-c("year", "Jump")
+dat<-dat[order(dat$year), ]
+tidy_data<-dat
+rownames(tidy_data) <- NULL
+tidy_data<-tidy_data %>%
+  mutate(year=as.factor(year))
+head<-head(tidy_data,15)
+kable(head,caption="Tidy data  of  performance for 
+      Olympic Men’s Long Jump and year")
+```
+
+```{r}
+plot(x=tidy_data$year, y=tidy_data$Jump, 
+     main = "Plot of Olympic Men’s Long Jump and year", 
+     ylab="Long Jump", pch = 19, xlab ="Year")
+```
+
+## Issues
+
+Data description was not very clear on the unit of measurement for the long jump.
+
+
+# Part D
+
+Triplicate measurements of tomato yield for two varieties of tomatoes at three planting densities.
+
+```{r}
+mat<-as.matrix(read.csv("partD_data.csv", header = F ))
+colnames(mat) <- NULL
+vec<-numeric()
+for(i in 1:nrow(mat)){
+  vec <- c(vec, mat[i, ])
+}
+yield<-vec
+Variety<-c("Ife","PusaED")
+Variety<-rep(Variety, each = length(vec)/2)
+densities<-rep(c("10000","20000","30000"),each = 3)
+densities<-rep(densities, times = 2)
+tidy_data<-data.frame(yield,Variety,densities)
+head<-head(tidy_data,15)
+kable(head,caption="Tidy data for the triplicate measurements
+      of tomato yield for two varieties of tomatoes 
+      at three planting densities.")
+```
+
+```{r, message=FALSE}
+# Mean of triplicate measurements
+meanrep<-rep(seq(1,length(tidy_data$densities)/3), each = 3)
+tidy_data$meanrep<-as.factor(meanrep)
+tidy2 <- tidy_data %>%
+  group_by(meanrep, densities, Variety) %>%
+  summarize(mean_value = mean(yield))
+
+head<-head(tidy2,15)
+kable(head,caption="summarized tidy data with mean of
+      triplicates of each density")
+```
+
+
+```{r}
+tidy2 %>% 
+  ggplot(aes(x=Variety, y=mean_value)) +
+  geom_col(aes(fill=Variety)) + 
+  facet_wrap(~ densities)+
+  labs(caption = "We have a histogram of three
+  planting densities and their yield.
+       Each facet represents the variety")+
+  scale_fill_manual(values=cbPalette)
+```
+
+## Issues 
+
+The data did not have any issues.
+
+
+# Part E
+
+Larvae counts at two ages given 5 different treatments in 8 blocks.
+
+```{r}
+mat<-as.matrix(read.csv("partE_data.csv", header = F ))
+colnames(mat) <- NULL
+mat<-mat[,2:11]
+vec<-numeric()
+for(i in 1:nrow(mat)){
+  vec <- c(vec, mat[i, ])
+}
+counts<-vec
+b<-seq(1,8)
+block<-rep(b, each = 10)
+A<-rep(c(1,2), each = 5)
+Age<-rep(A, times = 8)
+t<-seq(1,5)
+treatment<-rep(t, times = 8)
+dat<-data.frame(counts, block, treatment, Age)
+tidy_data<-dat %>%
+  mutate(block=as.factor(block))%>%
+  mutate(treatment=as.factor(treatment))
+head<-head(tidy_data,15)
+kable(head,caption="Tidy data for our larvae counts 
+      at two ages given 5 different treatments in 8 blocks")
+```
+
+```{r}
+# To use for fills, add
+library(ggplot2)
+tidy_data %>% 
+  ggplot(aes(x=block, y=counts)) +
+  geom_col(aes(fill=block)) + 
+  facet_wrap(~ treatment)+
+  scale_fill_manual(values=cbPalette)+
+  labs(caption = "We have a histogram of blocks and 
+       their larvae counts. Each facet represents 
+       the Treatments. Treatment 1 to 5 for Age 1 
+       and the rest for age 2")
+```
+
+## Issues
+
+No Issues with data.
